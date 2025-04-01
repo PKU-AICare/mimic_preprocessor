@@ -1,0 +1,39 @@
+ItemID,Variable,MimicLabel
+223951,Capillary refill rate,Capillary Refill R
+224308,Capillary refill rate,Capillary Refill L
+220051,Diastolic blood pressure,Arterial Blood Pressure diastolic
+220180,Diastolic blood pressure,Non Invasive Blood Pressure diastolic
+224643,Diastolic blood pressure,Manual Blood Pressure Diastolic Left
+225310,Diastolic blood pressure,ART BP Diastolic
+223835,Fraction inspired oxygen,Inspired O2 Fraction
+220739,Glascow coma scale eye opening,GCS - Eye Opening
+223901,Glascow coma scale motor response,GCS - Motor Response
+223900,Glascow coma scale verbal response,GCS - Verbal Response
+220621,Glucose,Glucose (serum)
+225664,Glucose,Glucose finger stick
+226537,Glucose,Glucose (whole blood)
+220045,Heart Rate,Heart Rate
+226707,Height,Height
+226730,Height,Height (cm)
+220052,Mean blood pressure,Arterial Blood Pressure mean
+220181,Mean blood pressure,Non Invasive Blood Pressure mean
+224322,Mean blood pressure,IABP Mean
+225312,Mean blood pressure,ART BP mean
+220227,Oxygen saturation,Arterial O2 Saturation
+220277,Oxygen saturation,O2 saturation pulseoxymetry
+220210,Respiratory rate,Respiratory Rate
+224422,Respiratory rate,Spont RR
+224689,Respiratory rate,Respiratory Rate (spontaneous)
+224690,Respiratory rate,Respiratory Rate (Total)
+220050,Systolic blood pressure,Arterial Blood Pressure systolic
+220179,Systolic blood pressure,Non Invasive Blood Pressure systolic
+224167,Systolic blood pressure,Manual Blood Pressure Systolic Left
+225309,Systolic blood pressure,ART BP Systolic
+227243,Systolic blood pressure,Manual Blood Pressure Systolic Right
+223761,Temperature,Temperature Fahrenheit
+223762,Temperature,Temperature Celsius
+224639,Weight,Daily Weight
+226512,Weight,Admission Weight (Kg)
+226531,Weight,Admission Weight (lbs.)
+220274,pH,PH (Venous)
+223830,pH,PH (Arterial)

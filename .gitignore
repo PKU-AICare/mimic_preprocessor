@@ -1,3 +1,9 @@
+# New
+mimic_datasets/mimic_iv/3.1/*
+!mimic_datasets/mimic_iv/3.1/mimic4_item2var.csv
+!mimic_datasets/mimic_iv/3.1/config.toml
+mimic_datasets/mimic_iv_note/*
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
