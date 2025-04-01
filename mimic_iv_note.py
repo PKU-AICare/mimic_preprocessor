@@ -3,6 +3,7 @@ import re
 
 import tomli as tomllib
 import pandas as pd
+import numpy as np
 
 
 # Processing text function
@@ -18,6 +19,11 @@ def preprocess_text(text):
     # Remove de-identification placeholders
     text = text.replace('name unit no admission date discharge date date of birth ', '')
     return text
+
+
+def last_non_null(series: pd.Series):
+    non_null = series[series.notna()]
+    return non_null.iloc[-1] if not non_null.empty else np.nan
 
 
 if __name__ == "__main__":
@@ -38,36 +44,40 @@ if __name__ == "__main__":
     note_df = note_df.groupby("PatientID").tail(5).reset_index(drop=True)
 
     note_df.to_parquet(os.path.join(note_processed_dir,  "mimic4_discharge_note.parquet"), index=False)
+    print(f"Discharge Note: {note_df['PatientID'].nunique()} patients with {note_df.shape[0]} notes.")
+    print("Note data processing completed successfully.")
 
     # Merge with labels and events
     ehr_data_dir = "mimic_datasets/mimic_iv/3.1"
-    stays = os.path.join(ehr_data_dir, "processed", "mimic4_formatted_stays.csv")
-    events = os.path.join(ehr_data_dir, "processed", "mimic4_formatted_events.csv")
+    stays = os.path.join(ehr_data_dir, "processed", "mimic4_formatted_icustays.parquet")
+    events = os.path.join(ehr_data_dir, "processed", "mimic4_formatted_events.parquet")
     config_file = os.path.join(ehr_data_dir, "config.toml")
-    if not os.path.exists(config_file):
-        print(f"File {config_file} does not exist. Exiting.")
-        exit()
-    config = tomllib.load(config_file)
-    
-    if not os.path.exists(stays):
-        print(f"File {stays} does not exist. Exiting.")
-        exit()
-    stays_df = pd.read_csv(stays)
-    note_df = note_df.merge(
-        stays_df,
-        how="inner",
-        on=["PatientID", "AdmissionID"]
-    )
-    note_df[config["basic_features"] + ["Text"] + config["label_features"] + config["demographics_features"]].to_parquet(os.path.join(note_processed_dir, "mimic4_discharge_note_with_labels.parquet"), index=False)
 
-    if not os.path.exists(events):
-        print(f"File {events} does not exist. Exiting.")
+    if not os.path.exists(events) or not os.path.exists(stays) or not os.path.exists(config_file):
+        print(f"File events or stays or config_file does not exist. Exiting.")
         exit()
-    events_df = pd.read_csv(events)
-    note_df = note_df.merge(
+    
+    stays_df = pd.read_parquet(stays)
+    events_df = pd.read_parquet(events)
+    with open(config_file, "rb") as f:
+        config = tomllib.load(f)
+
+    events_df = events_df.groupby(["AdmissionID"]).agg(last_non_null).reset_index()
+    events_df = events_df.sort_values(by=["PatientID", "RecordTime"]).reset_index(drop=True)
+    
+    ehr_df = stays_df.merge(
         events_df,
         how="inner",
+        on=["PatientID", "AdmissionID", "StayID"]
+    )
+    df = note_df.merge(
+        ehr_df,
+        how="inner",
         on=["PatientID", "AdmissionID"]
     )
-    note_df[config["basic_features"] + ["Text"] + config["label_features"] + config["demographics_features"] + config["labtest_features"]].to_parquet(os.path.join(note_processed_dir, "mimic4_discharge_note_with_events.parquet"), index=False)
+    df = df.rename(columns={"RecordTime_x": "RecordTime",})
+    df = df[["PatientID", "RecordTime", "AdmissionID"] + config["label_features"] + ["Text"] + config["demographic_features"] + config["labtest_features"]]
+    
+    df.to_parquet(os.path.join(note_processed_dir, "mimic4_discharge_note_ehr.parquet"), index=False)
+    print(f"Discharge Note with EHR: {df['PatientID'].nunique()} patients with {df.shape[0]} notes.")
     print("Data processing completed successfully.")
