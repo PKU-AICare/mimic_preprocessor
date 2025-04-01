@@ -120,9 +120,6 @@ def format_events(events):
 
 if __name__ == '__main__':
     data_dir = "mimic_datasets/mimic_iv/3.1"
-    patients = os.path.join(data_dir, "hosp", "patients.csv")
-    admissions = os.path.join(data_dir, "hosp", "admissions.csv")
-    icustays = os.path.join(data_dir, "icu", "icustays.csv")
     chartevents = os.path.join(data_dir, "icu", "chartevents.csv")
     item2var = os.path.join(data_dir, "mimic4_item2var.csv")
     config_file = os.path.join(data_dir, "config.toml")
@@ -175,7 +172,7 @@ if __name__ == '__main__':
         'gender': 'Sex'
     }
     stays = stays[stays_saved_columns].rename(columns=stays_rename_map)
-    stays.to_csv(os.path.join(processed_dir, "mimic4_formatted_icustays.csv"), index=False)
+    stays.to_parquet(os.path.join(processed_dir, "mimic4_formatted_icustays.parquet"), index=False)
     print(f"Done processing patients and admissions information. {stays.PatientID.nunique()} patients, {len(stays)} records")
     
     ## Processing events information
@@ -209,7 +206,7 @@ if __name__ == '__main__':
     merged_events["Glascow coma scale total"] = merged_events["Glascow coma scale eye opening"].astype(float) + merged_events["Glascow coma scale motor response"].astype(float) + merged_events["Glascow coma scale verbal response"].astype(float)
     
     final_events = merged_events[['PatientID', 'RecordTime', 'AdmissionID', 'StayID'] + config["labtest_features"]]
-    final_events.to_csv(os.path.join(processed_dir, "mimic4_formatted_events.csv"), index=False)
+    final_events.to_parquet(os.path.join(processed_dir, "mimic4_formatted_events.parquet"), index=False)
     print(f"Done processing events information. {final_events.PatientID.nunique()} patients, {len(final_events)} records")
     
     ## Mergeing events with stays
@@ -238,5 +235,5 @@ if __name__ == '__main__':
     ]
     merged_df = stays.merge(final_events, on=['PatientID', 'AdmissionID', 'StayID'], how='inner')
     saved_df = merged_df[config["basic_features"] + config["label_features"] + config["demographic_features"] + config["labtest_features"]]
-    saved_df.to_csv(os.path.join(processed_dir, "mimic4_formatted_ehr.csv"), index=False)
+    saved_df.to_parquet(os.path.join(processed_dir, "mimic4_formatted_ehr.parquet"), index=False)
     print(f"Done processing all information. {saved_df.PatientID.nunique()} patients, {len(saved_df)} records")
