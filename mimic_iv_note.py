@@ -94,5 +94,5 @@ if __name__ == "__main__":
     df = df[["PatientID", "RecordTime", "AdmissionID"] + config["label_features"] + ["Text"] + config["demographic_features"] + config["labtest_features"]]
     
     df.to_parquet(os.path.join(note_processed_dir, "mimic4_discharge_note_ehr.parquet"), index=False)
-    print(f"Discharge Note with EHR: {df['PatientID'].nunique()} patients with {df.shape[0]} notes.")
+    print(f"Discharge Note with EHR: {df['PatientID'].nunique()} patients with {df['AdmissionID'].nunique()} notes and {df.shape[0]} records.")
     print("Data processing completed successfully.")
