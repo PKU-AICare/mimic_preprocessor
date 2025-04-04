@@ -21,9 +21,19 @@ def preprocess_text(text):
     return text
 
 
-def last_non_null(series: pd.Series):
+def last_not_null(series: pd.Series):
     non_null = series[series.notna()]
     return non_null.iloc[-1] if not non_null.empty else np.nan
+
+
+def merge_by_days(df: pd.DataFrame, day: int=7):
+    df = df.sort_values(by=['RecordTime']).reset_index(drop=True)
+    days = df['RecordTime'].drop_duplicates().tolist()
+    if len(days) > day:
+        split_day = days[-day - 1]
+        df.loc[df['RecordTime'] <= split_day, 'RecordTime'] = split_day
+    df = df.groupby(['RecordTime']).agg(last_not_null).reset_index()
+    return df
 
 
 if __name__ == "__main__":
@@ -62,7 +72,12 @@ if __name__ == "__main__":
     with open(config_file, "rb") as f:
         config = tomllib.load(f)
 
-    events_df = events_df.groupby(["AdmissionID"]).agg(last_non_null).reset_index()
+    # Merge by AdmissionID
+    # events_df = events_df.groupby(["AdmissionID"]).agg(last_not_null).reset_index()
+    
+    # Merge by days in one admission
+    events['RecordTime'] = pd.to_datetime(events['RecordTime'])
+    df = events.groupby(['PatientID', 'AdmissionID']).apply(merge_by_days, day=7).reset_index(drop=True)
     events_df = events_df.sort_values(by=["PatientID", "RecordTime"]).reset_index(drop=True)
     
     ehr_df = stays_df.merge(
