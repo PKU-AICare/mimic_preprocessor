@@ -26,6 +26,11 @@ def last_not_null(series: pd.Series):
     return non_null.iloc[-1] if not non_null.empty else np.nan
 
 
+def first_text(series: pd.Series):
+    series[1:] = ''
+    return series
+
+
 def merge_by_days(df: pd.DataFrame, day: int=7):
     df = df.sort_values(by=['RecordTime']).reset_index(drop=True)
     days = df['RecordTime'].drop_duplicates().tolist()
@@ -66,7 +71,7 @@ if __name__ == "__main__":
     if not os.path.exists(events) or not os.path.exists(stays) or not os.path.exists(config_file):
         print(f"File events or stays or config_file does not exist. Exiting.")
         exit()
-    
+
     stays_df = pd.read_parquet(stays)
     events_df = pd.read_parquet(events)
     with open(config_file, "rb") as f:
@@ -74,12 +79,12 @@ if __name__ == "__main__":
 
     # Merge by AdmissionID
     # events_df = events_df.groupby(["AdmissionID"]).agg(last_not_null).reset_index()
-    
+
     # Merge by days in one admission
     events['RecordTime'] = pd.to_datetime(events['RecordTime'])
     df = events.groupby(['PatientID', 'AdmissionID']).apply(merge_by_days, day=7).reset_index(drop=True)
     events_df = events_df.sort_values(by=["PatientID", "RecordTime"]).reset_index(drop=True)
-    
+
     ehr_df = stays_df.merge(
         events_df,
         how="inner",
@@ -91,8 +96,13 @@ if __name__ == "__main__":
         on=["PatientID", "AdmissionID"]
     )
     df = df.rename(columns={"RecordTime_x": "RecordTime",})
-    df = df[["PatientID", "RecordTime", "AdmissionID"] + config["label_features"] + ["Text"] + config["demographic_features"] + config["labtest_features"]]
-    
+    df["RecordID"] = df["PatientID"].astype(str) + "_" + df["AdmissionID"].astype(str)
+    df = df[["RecordID", "PatientID", "RecordTime", "AdmissionID"] + config["label_features"] + ["Text"] + config["demographic_features"] + config["labtest_features"]]
+
+    # Remove duplicate records
+    df_grouped = df.groupby("RecordID")["Text"].apply(first_text).reset_index(drop=True)
+    df.loc[:, "Text"] = df_grouped["Text"]
+
     df.to_parquet(os.path.join(note_processed_dir, "mimic4_discharge_note_ehr.parquet"), index=False)
     print(f"Discharge Note with EHR: {df['PatientID'].nunique()} patients with {df['AdmissionID'].nunique()} notes and {df.shape[0]} records.")
     print("Data processing completed successfully.")
