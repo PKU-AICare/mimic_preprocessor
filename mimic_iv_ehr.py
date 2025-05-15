@@ -3,7 +3,6 @@ import os
 import tomli as tomllib
 import numpy as np
 import pandas as pd
-from pandas import Series
 
 
 def read_patients_table(path):
@@ -69,7 +68,7 @@ def format_gcs(df):
 
 
 def format_crr(df):
-    v = Series(np.zeros(df.shape[0]), index=df.index)
+    v = pd.Series(np.zeros(df.shape[0]), index=df.index)
     v[:] = np.nan
     neg_idx = df["Value"].apply(lambda s: 'normal' in s.lower())
     pos_idx = df["Value"].apply(lambda s: 'abnormal' in s.lower())
@@ -123,10 +122,10 @@ if __name__ == '__main__':
     chartevents = os.path.join(data_dir, "icu", "chartevents.csv")
     item2var = os.path.join(data_dir, "mimic4_item2var.csv")
     config_file = os.path.join(data_dir, "config.toml")
-    
+
     processed_dir = os.path.join(data_dir, "processed")
     os.makedirs(processed_dir, exist_ok=True)
-    
+
     ## Processing patients information
     patients = read_patients_table(data_dir)
     admissions = read_admissions_table(data_dir)
@@ -135,11 +134,11 @@ if __name__ == '__main__':
     print("Patients: ", len(patients))
     print(f"Admissions: {patients.subject_id.nunique()} patients, {len(admissions)} records")
     print(f"ICU stays: {icustays.subject_id.nunique()} patients, {len(icustays)} records")
-    
+
     stays = icustays.merge(admissions, how="inner", on=["subject_id", "hadm_id"])
     stays = stays.merge(patients, how="inner", on=["subject_id"])
     print(f"ICU stays after merging with admissions and patients: {stays.subject_id.nunique()} patients, {len(stays)} records")
-    
+
     stays = stays.sort_values(by=['subject_id', 'intime']).reset_index(drop=True)
     stays['age'] = stays.anchor_age
     stays.loc[:, 'gender'] = stays['gender'].apply(lambda s: 1 if s == 'M' else 0)
@@ -148,9 +147,9 @@ if __name__ == '__main__':
     stays = add_inunit_readmission_to_icustays(stays)
     stays['los'] = 24 * stays['los'].astype(float)
     stays_saved_columns = [
-        'subject_id', 'hadm_id', 'stay_id', 
+        'subject_id', 'hadm_id', 'stay_id',
         'admittime', 'dischtime', 'deathtime', 'intime', 'outtime', 'dod',
-        'mortality', 'los', 'readmission', 'mortality_inhospital', 'mortality_inunit', 
+        'mortality', 'los', 'readmission', 'mortality_inhospital', 'mortality_inunit',
         'age', 'gender'
     ]
     stays_rename_map = {
@@ -174,7 +173,7 @@ if __name__ == '__main__':
     stays = stays[stays_saved_columns].rename(columns=stays_rename_map)
     stays.to_parquet(os.path.join(processed_dir, "mimic4_formatted_icustays.parquet"), index=False)
     print(f"Done processing patients and admissions information. {stays.PatientID.nunique()} patients, {len(stays)} records")
-    
+
     ## Processing events information
     print("Reading events tables...")
     chartevents_df = pd.read_csv(chartevents)
@@ -194,45 +193,23 @@ if __name__ == '__main__':
     df = chartevents_df.merge(item2var_df, left_on='itemid', right_on='ItemID')
     df = df[events_saved_columns + ['MimicLabel', 'valuenum']].rename(columns=events_rename_map)
     df = df.drop_duplicates(subset=['PatientID', 'RecordTime', 'AdmissionID', 'StayID', 'Variable'], keep='last')
-    
+
     format_df = format_events(df)
-    
+
     meta_events = format_df[['PatientID', 'RecordTime', 'AdmissionID', 'StayID']].sort_values(by=['PatientID', 'RecordTime', 'AdmissionID', 'StayID']).drop_duplicates(keep='first').set_index('RecordTime')
     value_events = format_df[['RecordTime', 'Variable', 'Value']].sort_values(by=['RecordTime', 'Variable', 'Value']).drop_duplicates(subset=['RecordTime', 'Variable'], keep='last')
     value_events = value_events.pnote_dfot(index='RecordTime', columns='Variable', values='Value')
     merged_events = meta_events.merge(value_events, left_index=True, right_index=True).sort_index(axis=0).sort_values(by=['PatientID', 'RecordTime', 'AdmissionID', 'StayID']).reset_index()
     merged_events = merged_events[['PatientID', 'RecordTime'] + list(merged_events.columns)[2:]]
-    
+
     merged_events["Glascow coma scale total"] = merged_events["Glascow coma scale eye opening"].astype(float) + merged_events["Glascow coma scale motor response"].astype(float) + merged_events["Glascow coma scale verbal response"].astype(float)
-    
+
     final_events = merged_events[['PatientID', 'RecordTime', 'AdmissionID', 'StayID'] + config["labtest_features"]]
     final_events.to_parquet(os.path.join(processed_dir, "mimic4_formatted_events.parquet"), index=False)
     print(f"Done processing events information. {final_events.PatientID.nunique()} patients, {len(final_events)} records")
-    
+
     ## Mergeing events with stays
     print("Merging events with stays...")
-    basic_features = ['PatientID', 'RecordTime']
-    label_features = ['Outcome', 'LOS', 'Readmission']
-    demo_features = ['Age', 'Sex']
-    labevents_features = [
-        "Glascow coma scale eye opening",
-        "Glascow coma scale motor response",
-        "Glascow coma scale verbal response",
-        "Glascow coma scale total",    
-        "Capillary refill rate",
-        "Diastolic blood pressure",
-        "Fraction inspired oxygen",
-        "Glucose",
-        "Heart Rate",
-        "Height",
-        "Mean blood pressure",
-        "Oxygen saturation",
-        "Respiratory rate",
-        "Systolic blood pressure",
-        "Temperature",
-        "Weight",
-        "pH"
-    ]
     merged_df = stays.merge(final_events, on=['PatientID', 'AdmissionID', 'StayID'], how='inner')
     saved_df = merged_df[config["basic_features"] + config["label_features"] + config["demographic_features"] + config["labtest_features"]]
     saved_df.to_parquet(os.path.join(processed_dir, "mimic4_formatted_ehr.parquet"), index=False)
