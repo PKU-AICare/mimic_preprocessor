@@ -1,10 +1,16 @@
 # New
 mimic_datasets/mimic_iv/3.1/hosp
 mimic_datasets/mimic_iv/3.1/icu
+mimic_datasets/mimic_iv/3.1/processed
 !mimic_datasets/mimic_iv/3.1/mimic4_item2var.csv
 !mimic_datasets/mimic_iv/3.1/config.toml
 mimic_datasets/mimic_iv_note/2.2/note
+mimic_datasets/mimic_iv_ed/
+mimic_datasets/mimic_iii/
 .DS_Store
+*.ipynb
+*.csv
+*.txt
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
