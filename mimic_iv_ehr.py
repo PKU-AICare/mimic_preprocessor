@@ -58,7 +58,7 @@ def add_inunit_readmission_to_icustays(stays):
         for i, group_row in enumerate(group.iterrows()):
             idx, row = group_row
             if i == len(group) - 1 and row.dod is not None:
-                stays.loc[idx, 'readmission'] = td_within_30days(row.intime, row.dod)
+                stays.loc[idx, 'readmission'] = td_within_30days(row.outtime, row.dod)
             elif i < len(group) - 1:
                 stays.loc[idx, 'readmission'] = td_within_30days(row.outtime, group.iloc[i + 1].intime)
     stays['readmission'] = stays['readmission'].astype(int)
