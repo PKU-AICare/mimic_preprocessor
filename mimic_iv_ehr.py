@@ -3,6 +3,8 @@ import os
 import tomli as tomllib
 import numpy as np
 import pandas as pd
+import pyarrow as pa
+import pyarrow.parquet as pq
 
 
 def read_patients_table(path):
@@ -70,29 +72,33 @@ def format_gcs(df):
 def format_crr(df):
     v = pd.Series(np.zeros(df.shape[0]), index=df.index)
     v[:] = np.nan
-    neg_idx = df["Value"].apply(lambda s: 'normal' in s.lower())
-    pos_idx = df["Value"].apply(lambda s: 'abnormal' in s.lower())
+    # Check if 'Value' is a string before using .lower()
+    neg_idx = df["Value"].loc[df["Value"].apply(isinstance, args=(str,))].apply(lambda s: 'normal' in s.lower())
+    pos_idx = df["Value"].loc[df["Value"].apply(isinstance, args=(str,))].apply(lambda s: 'abnormal' in s.lower())
     v.loc[neg_idx] = 0.0
     v.loc[pos_idx] = 1.0
     return v
 
 
 def format_temperature(df):
-    v = df["Value"].astype(float).copy()
-    idx = df["MimicLabel"].apply(lambda s: 'F' in s.lower())
-    v.loc[idx] = (v[idx] - 32) * 5. / 9
+    # Ensure 'Value' is numeric before conversion
+    v = pd.to_numeric(df["Value"], errors='coerce').astype(float).copy()
+    idx = df["MimicLabel"].apply(lambda s: 'f' in s.lower())
+    v.loc[idx] = np.round((v[idx] - 32) * 5. / 9, 2)
     return v
 
 
 def format_weight(df):
-    v = df["Value"].astype(float).copy()
+    # Ensure 'Value' is numeric before conversion
+    v = pd.to_numeric(df["Value"], errors='coerce').astype(float).copy()
     idx = df["MimicLabel"].apply(lambda s: 'lbs' in s.lower())
-    v.loc[idx] = np.round(v[idx] * 0.453592, 1)
+    v.loc[idx] = np.round(v[idx] * 0.453592, 2)
     return v
 
 
 def format_height(df):
-    v = df["Value"].astype(float).copy()
+    # Ensure 'Value' is numeric before conversion
+    v = pd.to_numeric(df["Value"], errors='coerce').astype(float).copy()
     idx = df["MimicLabel"].apply(lambda s: 'cm' not in s.lower())
     v.loc[idx] = np.round(v[idx] * 2.54)
     return v
@@ -111,15 +117,24 @@ format_fns = {
 
 def format_events(events):
     global format_fns
+    # Make a copy to avoid SettingWithCopyWarning
+    events_copy = events.copy()
     for var_name, format_fn in format_fns.items():
-        idx = (events["Variable"] == var_name)
-        events.loc[idx, 'Value'] = format_fn(events[idx])
-    return events.loc[events["Value"].notnull()]
+        idx = (events_copy["Variable"] == var_name)
+        if idx.any():
+            # Pass only the relevant subset to the format function
+            formatted_values = format_fn(events_copy.loc[idx])
+            events_copy.loc[idx, 'Value'] = formatted_values
+
+    # After formatting, convert 'Value' to a numeric type, coercing errors
+    events_copy['Value'] = pd.to_numeric(events_copy['Value'], errors='coerce')
+
+    return events_copy.loc[events_copy["Value"].notnull()]
 
 
 if __name__ == '__main__':
     data_dir = "mimic_datasets/mimic_iv/3.1"
-    chartevents = os.path.join(data_dir, "icu", "chartevents.csv")
+    chartevents_path = os.path.join(data_dir, "icu", "chartevents.csv")
     item2var = os.path.join(data_dir, "mimic4_item2var.csv")
     config_file = os.path.join(data_dir, "config.toml")
 
@@ -174,13 +189,18 @@ if __name__ == '__main__':
     stays.to_parquet(os.path.join(processed_dir, "mimic4_formatted_icustays.parquet"), index=False)
     print(f"Done processing patients and admissions information. {stays.PatientID.nunique()} patients, {len(stays)} records")
 
-    ## Processing events information
-    print("Reading events tables...")
-    chartevents_df = pd.read_csv(chartevents)
-    print(f"Events: {chartevents_df.subject_id.nunique()} patients")
+    ## Processing events information with chunking
+    print("Reading and processing events tables in chunks...")
     item2var_df = pd.read_csv(item2var)
     with open(config_file, "rb") as f:
         config = tomllib.load(f)
+
+    # Define paths for temporary storage
+    temp_processed_events_path = os.path.join(processed_dir, "temp_formatted_events_long.parquet")
+
+    # If the temp file exists, remove it to start fresh
+    if os.path.exists(temp_processed_events_path):
+        os.remove(temp_processed_events_path)
 
     events_saved_columns = ['subject_id', 'charttime', 'hadm_id', 'stay_id', 'Variable', 'value']
     events_rename_map = {
@@ -190,25 +210,69 @@ if __name__ == '__main__':
         'stay_id': 'StayID',
         'value': 'Value',
     }
-    df = chartevents_df.merge(item2var_df, left_on='itemid', right_on='ItemID')
-    df = df[events_saved_columns + ['MimicLabel', 'valuenum']].rename(columns=events_rename_map)
-    df = df.drop_duplicates(subset=['PatientID', 'RecordTime', 'AdmissionID', 'StayID', 'Variable'], keep='last')
+    final_chunk_cols = ['PatientID', 'RecordTime', 'AdmissionID', 'StayID', 'Variable', 'Value']
 
-    format_df = format_events(df)
+    # Create an iterator to read chartevents in chunks
+    chunk_size = 10000000  # Adjust chunk size based on your available RAM
+    chartevents_iter = pd.read_csv(chartevents_path, chunksize=chunk_size, low_memory=False)
 
+    writer = None
+
+    for i, chunk in enumerate(chartevents_iter):
+        print(f"Processing chunk {i+1}...")
+
+        # Perform the merge and initial processing on the chunk
+        df_chunk = chunk.merge(item2var_df, left_on='itemid', right_on='ItemID')
+        df_chunk = df_chunk.rename(columns=events_rename_map)
+
+        # Use a combined column list for filtering
+        required_cols = list(events_rename_map.values()) + ['Variable', 'MimicLabel', 'valuenum']
+        df_chunk = df_chunk[required_cols]
+
+        df_chunk = df_chunk.drop_duplicates(subset=['PatientID', 'RecordTime', 'AdmissionID', 'StayID', 'Variable'], keep='last')
+
+        # Apply formatting functions
+        formatted_chunk = format_events(df_chunk)
+
+        # Convert the processed pandas DataFrame to a pyarrow Table
+        table = pa.Table.from_pandas(formatted_chunk[final_chunk_cols])
+
+        # For the first chunk, create the writer with the table's schema
+        if writer is None:
+            writer = pq.ParquetWriter(temp_processed_events_path, table.schema)
+
+        # Write the current chunk (table) to the parquet file
+        writer.write_table(table)
+
+    # Close the writer to finalize the file
+    if writer:
+        writer.close()
+
+    # Read the complete long-format data from the temporary file
+    format_df = pd.read_parquet(temp_processed_events_path)
+
+    # Clean up the temporary file
+    os.remove(temp_processed_events_path)
+
+    # Now, perform the pivot operation on the complete, formatted data
     meta_events = format_df[['PatientID', 'RecordTime', 'AdmissionID', 'StayID']].sort_values(by=['PatientID', 'RecordTime', 'AdmissionID', 'StayID']).drop_duplicates(keep='first').set_index('RecordTime')
     value_events = format_df[['RecordTime', 'Variable', 'Value']].sort_values(by=['RecordTime', 'Variable', 'Value']).drop_duplicates(subset=['RecordTime', 'Variable'], keep='last')
-    value_events = value_events.pnote_dfot(index='RecordTime', columns='Variable', values='Value')
-    merged_events = meta_events.merge(value_events, left_index=True, right_index=True).sort_index(axis=0).sort_values(by=['PatientID', 'RecordTime', 'AdmissionID', 'StayID']).reset_index()
+
+    value_events = value_events.pivot(index='RecordTime', columns='Variable', values='Value')
+
+    merged_events = meta_events.merge(value_events, left_index=True, right_index=True, how='left').sort_index(axis=0).sort_values(by=['PatientID', 'RecordTime', 'AdmissionID', 'StayID']).reset_index()
+
     merged_events = merged_events[['PatientID', 'RecordTime'] + list(merged_events.columns)[2:]]
 
-    merged_events["Glascow coma scale total"] = merged_events["Glascow coma scale eye opening"].astype(float) + merged_events["Glascow coma scale motor response"].astype(float) + merged_events["Glascow coma scale verbal response"].astype(float)
+    # Calculate Glascow coma scale total
+    gcs_cols = ["Glascow coma scale eye opening", "Glascow coma scale motor response", "Glascow coma scale verbal response"]
+    merged_events["Glascow coma scale total"] = merged_events[gcs_cols].sum(axis=1)
 
     final_events = merged_events[['PatientID', 'RecordTime', 'AdmissionID', 'StayID'] + config["labtest_features"]]
     final_events.to_parquet(os.path.join(processed_dir, "mimic4_formatted_events.parquet"), index=False)
     print(f"Done processing events information. {final_events.PatientID.nunique()} patients, {len(final_events)} records")
 
-    ## Mergeing events with stays
+    ## Merging events with stays
     print("Merging events with stays...")
     merged_df = stays.merge(final_events, on=['PatientID', 'AdmissionID', 'StayID'], how='inner')
     saved_df = merged_df[config["basic_features"] + config["label_features"] + config["demographic_features"] + config["labtest_features"]]
