@@ -9,9 +9,6 @@ A streamlined, efficient, and configurable pipeline for processing the raw MIMIC
 
 - **Dual Dataset Support**: Process both MIMIC-III (v1.4) and MIMIC-IV (v3.1, note v2.2) datasets.
 - **Modular Processing**: Choose which parts of the MIMIC-IV dataset to process (`ehr`, `note`, `icd`) and whether to merge them.
-- **Performance Optimized**: Utilizes chunked reading for large files (e.g., `chartevents.csv`) and vectorized operations in pandas to significantly speed up processing.
-- **User-Friendly**: Provides clear progress bars for long-running tasks using `tqdm`.
-- **Robust Logging**: Integrated logging can be directed to the console or a file for easy debugging and tracking.
 - **Clean Outputs**: Generates cleaned, analysis-ready data in the efficient Parquet file format.
 
 ## Project Structure
