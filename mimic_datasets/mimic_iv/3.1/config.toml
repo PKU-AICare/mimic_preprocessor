@@ -1,6 +1,11 @@
 basic_features = ["PatientID", "RecordTime"]
 label_features = ["Outcome", "LOS", "Readmission"]
 demographic_features = ["Age", "Sex"]
+gcs_features = [
+    "Glascow coma scale eye opening",
+    "Glascow coma scale motor response",
+    "Glascow coma scale verbal response"
+]
 labtest_features = [
     "Capillary refill rate",
     "Diastolic blood pressure",
