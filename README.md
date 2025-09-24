@@ -199,6 +199,12 @@ A single file containing one record per admission, with key columns:
 - `InHospitalOutcome`: Binary mortality label.
 - `Text`: The fully cleaned and concatenated clinical note text for that admission.
 
+The final output file contains the following statistics:
+
+- Number of patients: 36498
+- Number of admissions: 43884
+- Number of records: 43884
+
 ### MIMIC-IV Processor (`src/mimic_iv_processor.py`)
 
 The MIMIC-IV pipeline is divided into distinct, controllable modules.
@@ -223,18 +229,30 @@ This module processes patient stays and clinical events.
 - **Final EHR Merge**:
   - The stays and events tables are merged on `PatientID`, `AdmissionID`, and `StayID`.
   - **Output**: `mimic4_formatted_ehr.parquet`.
+  - **Statistics**:
+    - Number of patients: 65366
+    - Number of admissions: 85242
+    - Number of records: 330292
 
 #### 2. Note Processing (`--parts note`)
 
 - Processes `discharge.csv` from the MIMIC-IV-Note dataset.
 - Applies the same text preprocessing logic as in MIMIC-III (lowercasing, cleaning, etc.).
 - **Output**: `mimic4_discharge_note.parquet`.
+- **Statistics**:
+  - Number of patients: 145914
+  - Number of admissions: 331793
+  - Number of records: 331793
 
 #### 3. EHR & Note Merging (`--merge`)
 
 - This step combines the outputs from the EHR and Note processing modules.
 - **7-Day Window Logic**: Before merging, it aggregates clinical events within a 7-day sliding window for each admission to reduce data granularity and align time-series data with static notes.
 - **Output**: `mimic4_discharge_note_ehr.parquet`. This is the primary file for multimodal analysis.
+- **Statistics**:
+  - Number of patients: 50247
+  - Number of admissions: 65323
+  - Number of records: 246843
 
 #### 4. ICD & Prescription Processing (`--parts icd`)
 
