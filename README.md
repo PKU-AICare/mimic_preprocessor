@@ -79,7 +79,7 @@ Access to MIMIC datasets is restricted and requires credentialing on PhysioNet.
 
 2. **Organize Files**: After downloading, unzip the files and place them into the `mimic_datasets` directory following the exact structure below. The processing scripts rely on these default paths.
 
-  ```bash
+```bash
   mimic-processor/
   └── mimic_datasets/
       ├── mimic_iii/
@@ -104,7 +104,7 @@ Access to MIMIC datasets is restricted and requires credentialing on PhysioNet.
               └── note/
                   ├── discharge.csv
                   └── ...
-  ```
+```
 
 ## Usage
 
@@ -271,5 +271,5 @@ This module processes patient stays and clinical events.
 
 ### Predictive Features
 
-- 17 labtest features, 5 categorical features, and 12 numerical features.
+- 17 labtest features, including 5 categorical features and 12 numerical features.
 - `Text`: Discharge note text.
