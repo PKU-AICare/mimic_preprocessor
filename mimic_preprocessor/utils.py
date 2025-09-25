@@ -1,7 +1,9 @@
-import logging
 import re
 import sys
+import logging
+
 from tqdm import tqdm
+
 
 def setup_logger(name: str, log_file: str = None) -> logging.Logger:
     """

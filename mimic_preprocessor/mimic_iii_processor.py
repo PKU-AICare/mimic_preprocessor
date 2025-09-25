@@ -3,7 +3,7 @@ import os
 import pandas as pd
 from tqdm import tqdm
 
-from src.utils import setup_logger, preprocess_text
+from mimic_preprocessor.utils import setup_logger, preprocess_text
 
 
 class MIMICIIIProcessor:

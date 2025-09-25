@@ -1,7 +1,7 @@
 import argparse
 
-from src.mimic_iii_processor import MIMICIIIProcessor
-from src.mimic_iv_processor import MIMICIVProcessor
+from mimic_preprocessor.mimic_iii_processor import MIMICIIIProcessor
+from mimic_preprocessor.mimic_iv_processor import MIMICIVProcessor
 
 
 def main():

@@ -15,7 +15,7 @@ A streamlined, efficient, and configurable pipeline for processing the raw MIMIC
 
 ```bash
 ├── main.py                 # Main entry point for the CLI
-├── src/                    # Source code for the project
+├── mimic_preprocessor/     # Source code for the project
 │   ├── __init__.py
 │   ├── mimic_iii_processor.py
 │   ├── mimic_iv_processor.py
@@ -77,7 +77,7 @@ Access to MIMIC datasets is restricted and requires credentialing on PhysioNet.
 2. **Organize Files**: After downloading, unzip the files and place them into the `mimic_datasets` directory following the exact structure below. The processing scripts rely on these default paths.
 
 ```bash
-  mimic-processor/
+  mimic_preprocessor/
   └── mimic_datasets/
       ├── mimic_iii/
       │   └── 1.4/
@@ -171,7 +171,7 @@ python main.py mimic4 --parts icd
 
 ## Data Processing Logic and Outputs
 
-### MIMIC-III Processor (`src/mimic_iii_processor.py`)
+### MIMIC-III Processor (`mimic_preprocessor/mimic_iii_processor.py`)
 
 The MIMIC-III pipeline integrates patient demographics, admission details, and clinical notes into a single file.
 
@@ -205,7 +205,7 @@ The final output file contains the following statistics:
 - Number of admissions: 43884
 - Number of records: 43884
 
-### MIMIC-IV Processor (`src/mimic_iv_processor.py`)
+### MIMIC-IV Processor (`mimic_preprocessor/mimic_iv_processor.py`)
 
 The MIMIC-IV pipeline is divided into distinct, controllable modules.
 
