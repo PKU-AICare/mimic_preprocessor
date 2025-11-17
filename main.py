@@ -18,6 +18,7 @@ def main():
     parser.add_argument('--mimic4_processed_dir', type=str, default="mimic_datasets/mimic_iv/3.1/processed", help="Path to save processed MIMIC-IV data.")
     parser.add_argument('--parts', nargs='+', choices=['ehr', 'note', 'icd'], default=['ehr', 'note', 'icd'], help="For MIMIC-IV, specify which parts to process.")
     parser.add_argument('--merge', action='store_true', help="For MIMIC-IV, merge EHR and Note data after processing.")
+    parser.add_argument('--one_hot_encode_categorical', action='store_true', help="For MIMIC-IV, one-hot encode categorical labtest features (e.g., 'Glascow coma scale eye opening->1 No response').")
 
     # General arguments
     parser.add_argument('--log_file', type=str, help="Optional file to write logs to. Defaults to console output.")
@@ -37,7 +38,8 @@ def main():
             data_dir=args.mimic4_ehr_dir,
             note_dir=args.mimic4_note_dir,
             processed_dir=args.mimic4_processed_dir,
-            log_file=args.log_file
+            log_file=args.log_file,
+            one_hot_encode_categorical=args.one_hot_encode_categorical
         )
         processor.process(parts=args.parts, merge_ehr_note=args.merge)
 

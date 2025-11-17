@@ -13,10 +13,11 @@ from mimic_preprocessor.utils import setup_logger, preprocess_text
 
 class MIMICIVProcessor:
     """A class to process the MIMIC-IV dataset."""
-    def __init__(self, data_dir: str, note_dir: str, processed_dir: str, log_file: Optional[str] = None):
+    def __init__(self, data_dir: str, note_dir: str, processed_dir: str, log_file: Optional[str] = None, one_hot_encode_categorical: bool = False):
         self.data_dir = data_dir
         self.note_dir = note_dir
         self.processed_dir = processed_dir
+        self.one_hot_encode_categorical = one_hot_encode_categorical
         os.makedirs(self.processed_dir, exist_ok=True)
         os.makedirs(os.path.join(self.note_dir, "processed"), exist_ok=True)
         self.logger = setup_logger("MIMICIVProcessor", log_file)
@@ -45,6 +46,47 @@ class MIMICIVProcessor:
         idx = ~df["MimicLabel"].str.contains('cm', case=False)
         v.loc[idx] = v[idx] * 2.54
         return v.round()
+
+    # --- One-Hot Encoding Method ---
+    def _one_hot_encode_categorical_features(self, df, config):
+        """Apply one-hot encoding to categorical labtest features.
+
+        Args:
+            df: DataFrame containing labtest features
+            config: Configuration dictionary containing feature information
+
+        Returns:
+            DataFrame with one-hot encoded categorical features
+        """
+        if not self.one_hot_encode_categorical:
+            return df
+
+        self.logger.info("Applying one-hot encoding to categorical labtest features.")
+
+        # Get categorical features from config
+        categorical_features = [feature for feature, is_cat in config["is_categorical_channel"].items() if is_cat]
+        possible_values = config["possible_values"]
+
+        for feature in categorical_features:
+            if feature in df.columns and possible_values.get(feature):
+                # Create one-hot encoded columns
+                for value_info in possible_values[feature]:
+                    if isinstance(value_info, list):
+                        # Handle tuple format: (int_value, description)
+                        int_value, description = value_info
+                        column_name = f"{feature}->{int_value} {description}"
+                        # Handle both float and int values, including NaN
+                        df[column_name] = (df[feature] == int_value).astype(int)
+                    else:
+                        # Handle string format (backward compatibility)
+                        column_name = f"{feature}->{value_info}"
+                        df[column_name] = (df[feature] == value_info).astype(int)
+
+                # Remove original categorical column
+                df = df.drop(columns=[feature])
+                self.logger.info(f"One-hot encoded {feature} into {len(possible_values[feature])} columns")
+
+        return df
 
     # --- Processing EHR Data ---
     def _process_icu_patients(self):
@@ -234,6 +276,9 @@ class MIMICIVProcessor:
         ehr_df = ehr_df.drop(columns=['SplitTime']).groupby(['PatientID', 'AdmissionID', 'RecordTime']).last().reset_index()
         ehr_df["Glascow coma scale total"] = ehr_df[config["gcs_features"]].sum(axis=1)
 
+        # Apply one-hot encoding to categorical features if enabled
+        ehr_df = self._one_hot_encode_categorical_features(ehr_df, config)
+
         output_path = os.path.join(self.processed_dir, "mimic4_formatted_ehr.parquet")
         ehr_df.to_parquet(output_path, index=False)
         self.logger.info(f"Final EHR data saved to {output_path}.")
@@ -289,7 +334,19 @@ class MIMICIVProcessor:
         # Add the record ID as the unique identifier
         df["RecordID"] = df["PatientID"].astype(str) + "_" + df["AdmissionID"].astype(str)
 
-        final_columns = ["RecordID", "PatientID", "RecordTime", "AdmissionID"] + config["label_features"] + config["demographic_features"] + config["labtest_features"] + ["NoteRecordTime", "Text"]
+        # Determine labtest features based on whether one-hot encoding was applied
+        if self.one_hot_encode_categorical:
+            # Use one-hot labtest features from config if available
+            if "one_hot_labtest_features" in config:
+                labtest_feature_columns = [feature for feature, enabled in config["one_hot_labtest_features"].items() if enabled]
+            else:
+                # Fallback: dynamically determine one-hot features from the merged dataframe
+                base_columns = ["RecordID", "PatientID", "RecordTime", "AdmissionID", "NoteRecordTime", "Text"] + config["label_features"] + config["demographic_features"]
+                labtest_feature_columns = [col for col in df.columns if col not in base_columns]
+        else:
+            labtest_feature_columns = config["labtest_features"]
+
+        final_columns = ["RecordID", "PatientID", "RecordTime", "AdmissionID"] + config["label_features"] + config["demographic_features"] + labtest_feature_columns + ["NoteRecordTime", "Text"]
         df = df[final_columns].sort_values(by=['RecordID', 'RecordTime']).reset_index(drop=True)
         df['Text'] = np.where(~df.duplicated(subset=['RecordID'], keep='first'), df['Text'], '')
 
