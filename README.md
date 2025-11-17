@@ -9,6 +9,7 @@ A streamlined, efficient, and configurable pipeline for processing the raw MIMIC
 
 - **Dual Dataset Support**: Process both MIMIC-III (v1.4) and MIMIC-IV (v3.1, note v2.2) datasets.
 - **Modular Processing**: Choose which parts of the MIMIC-IV dataset to process (`ehr`, `note`, `icd`) and whether to merge them.
+- **One-Hot Encoding**: Optional one-hot encoding for categorical labtest features in MIMIC-IV for improved machine learning compatibility.
 - **Clean Outputs**: Generates cleaned, analysis-ready data in the efficient Parquet file format.
 
 ## Project Structure
@@ -160,6 +161,12 @@ python main.py mimic4 --parts icd
   python main.py mimic4 --merge --log_file processing.log
   ```
 
+- **One-Hot Encoding**: Enable one-hot encoding for categorical labtest features (e.g., "Glascow coma scale eye opening->1 No response"):
+
+  ```bash
+  python main.py mimic4 --parts ehr --one_hot_encode_categorical
+  ```
+
 - **Custom Data Paths**: If your data is not in the default location, specify the paths:
 
   ```bash
@@ -228,6 +235,7 @@ This module processes patient stays and clinical events.
 
 - **Final EHR Merge**:
   - The stays and events tables are merged on `PatientID`, `AdmissionID`, and `StayID`.
+  - Applies one-hot encoding to categorical labtest features if enabled (e.g., Glasgow Coma Scale responses become binary columns like "Glascow coma scale eye opening->1 No response").
   - **Output**: `mimic4_formatted_ehr.parquet`.
   - **Statistics**:
     - Number of patients: 65366
@@ -286,5 +294,6 @@ This module processes patient stays and clinical events.
 
 ### Predictive Features
 
-- 17 labtest features, including 5 categorical features and 12 numerical features.
+- **17 labtest features**: Including 5 categorical features (Glasgow Coma Scale components, Capillary refill rate) and 12 numerical features.
+- **One-Hot Encoding Option**: When `--one_hot_encode_categorical` is used, categorical features are converted to binary columns (e.g., "Glascow coma scale eye opening->1 No response" becomes a separate binary feature).
 - `Text`: Discharge note text.
