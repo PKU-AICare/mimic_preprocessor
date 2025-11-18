@@ -24,7 +24,10 @@ class MIMICIVProcessor:
         tqdm.pandas(desc="Processing")
 
     # --- Formatting Functions for Events EHR Data ---
-    def _format_gcs(self, df): return df["valuenum"].astype(float)
+    def _format_gcs(self, df):
+        if self.one_hot_encode_categorical:
+            return df["value"] # Type: str
+        return df["valuenum"].astype(float) # Type: float
     def _format_crr(self, df):
         v = pd.Series(np.nan, index=df.index)
         str_mask = df["value"].apply(isinstance, args=(str,))
@@ -45,7 +48,7 @@ class MIMICIVProcessor:
         v = pd.to_numeric(df["value"], errors='coerce').astype(float)
         idx = ~df["MimicLabel"].str.contains('cm', case=False)
         v.loc[idx] = v[idx] * 2.54
-        return v.round()
+        return v.round(2)
 
     # --- One-Hot Encoding Method ---
     def _one_hot_encode_categorical_features(self, df, config):
@@ -58,8 +61,6 @@ class MIMICIVProcessor:
         Returns:
             DataFrame with one-hot encoded categorical features
         """
-        if not self.one_hot_encode_categorical:
-            return df
 
         self.logger.info("Applying one-hot encoding to categorical labtest features.")
 
@@ -70,17 +71,9 @@ class MIMICIVProcessor:
         for feature in categorical_features:
             if feature in df.columns and possible_values.get(feature):
                 # Create one-hot encoded columns
-                for value_info in possible_values[feature]:
-                    if isinstance(value_info, list):
-                        # Handle tuple format: (int_value, description)
-                        int_value, description = value_info
-                        column_name = f"{feature}->{int_value} {description}"
-                        # Handle both float and int values, including NaN
-                        df[column_name] = (df[feature] == int_value).astype(int)
-                    else:
-                        # Handle string format (backward compatibility)
-                        column_name = f"{feature}->{value_info}"
-                        df[column_name] = (df[feature] == value_info).astype(int)
+                for value in possible_values[feature]:
+                    column_name = f"{feature}->{value}"
+                    df[column_name] = (df[feature].astype(str) == str(value)).astype(int)
 
                 # Remove original categorical column
                 df = df.drop(columns=[feature])
@@ -205,7 +198,10 @@ class MIMICIVProcessor:
                 idx = (df_chunk["Variable"] == var_name)
                 if idx.any():
                     df_chunk.loc[idx, 'value'] = func(df_chunk.loc[idx])
-            df_chunk['value'] = pd.to_numeric(df_chunk['value'], errors='coerce')
+            if self.one_hot_encode_categorical:
+                df_chunk['value'] = df_chunk['value'].astype(str)
+            else:
+                df_chunk['value'] = pd.to_numeric(df_chunk['value'], errors='coerce')
             df_chunk = df_chunk.dropna(subset=['value'])
 
             final_chunk = df_chunk.rename(columns={'subject_id': 'PatientID', 'charttime': 'RecordTime', 'hadm_id': 'AdmissionID', 'stay_id': 'StayID', 'value': 'Value'})
@@ -221,10 +217,25 @@ class MIMICIVProcessor:
         os.remove(temp_path)
         value_events = format_df.pivot_table(index=['PatientID', 'AdmissionID', 'StayID', 'RecordTime'], columns='Variable', values='Value', aggfunc='last').reset_index()
 
-        gcs_cols = ["Glascow coma scale eye opening", "Glascow coma scale motor response", "Glascow coma scale verbal response"]
+        gcs_cols = config["gcs_features"]
+        mapping_values = config.get("mapping_values", {})
+        mapped_gcs_values = []
         for col in gcs_cols:
-            if col not in value_events.columns: value_events[col] = np.nan
-        value_events["Glascow coma scale total"] = value_events[gcs_cols].sum(axis=1)
+            if col not in value_events.columns:
+                value_events[col] = np.nan
+            col_mapping = mapping_values.get(col, {})
+            mapped_series = (
+                value_events[col]
+                .map(lambda v: col_mapping.get(str(v), v)) if col_mapping else value_events[col]
+            )
+            mapped_gcs_values.append(pd.to_numeric(mapped_series, errors="coerce"))
+        gcs_numeric_df = pd.concat(mapped_gcs_values, axis=1)
+        gcs_numeric_df.columns = gcs_cols
+        value_events["Glascow coma scale total"] = gcs_numeric_df.sum(axis=1).astype(int)
+
+        for col in config["label_features"]:
+            if col in value_events.columns and col not in gcs_cols + ["Glascow coma scale total"]:
+                value_events[col] = pd.to_numeric(value_events[col], errors="coerce")
 
         final_events = value_events[['PatientID', 'RecordTime', 'AdmissionID', 'StayID'] + config["labtest_features"]]
         output_path = os.path.join(self.processed_dir, "mimic4_formatted_events.parquet")
@@ -274,10 +285,10 @@ class MIMICIVProcessor:
         ehr_df = pd.merge(ehr_df, split_dates, on=['PatientID', 'AdmissionID'], how='left')
         ehr_df['RecordTime'] = np.where(ehr_df['RecordTime'] <= ehr_df['SplitTime'].fillna(pd.Timestamp.min.date()), ehr_df['SplitTime'], ehr_df['RecordTime'])
         ehr_df = ehr_df.drop(columns=['SplitTime']).groupby(['PatientID', 'AdmissionID', 'RecordTime']).last().reset_index()
-        ehr_df["Glascow coma scale total"] = ehr_df[config["gcs_features"]].sum(axis=1)
 
         # Apply one-hot encoding to categorical features if enabled
-        ehr_df = self._one_hot_encode_categorical_features(ehr_df, config)
+        if self.one_hot_encode_categorical:
+            ehr_df = self._one_hot_encode_categorical_features(ehr_df, config)
 
         output_path = os.path.join(self.processed_dir, "mimic4_formatted_ehr.parquet")
         ehr_df.to_parquet(output_path, index=False)
