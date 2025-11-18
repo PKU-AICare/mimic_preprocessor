@@ -47,8 +47,8 @@ labtest_features = [
 
 [possible_values]
 "Capillary refill rate" = [
-    [0, "0"],
-    [1, "1"],
+    "0.0",
+    "1.0"
 ]
 "Diastolic blood pressure" = []
 "Fraction inspired oxygen" = []

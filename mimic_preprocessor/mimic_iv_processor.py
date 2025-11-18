@@ -221,12 +221,9 @@ class MIMICIVProcessor:
         mapping_values = config.get("mapping_values", {})
         mapped_gcs_values = []
         for col in gcs_cols:
-            if col not in value_events.columns:
-                value_events[col] = np.nan
             col_mapping = mapping_values.get(col, {})
             mapped_series = (
-                value_events[col]
-                .map(lambda v: col_mapping.get(str(v), v)) if col_mapping else value_events[col]
+                value_events[col].map(lambda v: col_mapping.get(str(v), v)) if col_mapping else value_events[col]
             )
             mapped_gcs_values.append(pd.to_numeric(mapped_series, errors="coerce"))
         gcs_numeric_df = pd.concat(mapped_gcs_values, axis=1)
