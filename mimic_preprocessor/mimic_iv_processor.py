@@ -231,10 +231,10 @@ class MIMICIVProcessor:
             mapped_gcs_values.append(pd.to_numeric(mapped_series, errors="coerce"))
         gcs_numeric_df = pd.concat(mapped_gcs_values, axis=1)
         gcs_numeric_df.columns = gcs_cols
-        value_events["Glascow coma scale total"] = gcs_numeric_df.sum(axis=1).astype(int)
+        value_events["Glascow coma scale total"] = gcs_numeric_df.sum(axis=1)
 
         for col in config["label_features"]:
-            if col in value_events.columns and col not in gcs_cols + ["Glascow coma scale total"]:
+            if col in value_events.columns and col not in gcs_cols:
                 value_events[col] = pd.to_numeric(value_events[col], errors="coerce")
 
         final_events = value_events[['PatientID', 'RecordTime', 'AdmissionID', 'StayID'] + config["labtest_features"]]
@@ -286,6 +286,19 @@ class MIMICIVProcessor:
         ehr_df['RecordTime'] = np.where(ehr_df['RecordTime'] <= ehr_df['SplitTime'].fillna(pd.Timestamp.min.date()), ehr_df['SplitTime'], ehr_df['RecordTime'])
         ehr_df = ehr_df.drop(columns=['SplitTime']).groupby(['PatientID', 'AdmissionID', 'RecordTime']).last().reset_index()
 
+        gcs_cols = config["gcs_features"]
+        mapping_values = config.get("mapping_values", {})
+        mapped_gcs_values = []
+        for col in gcs_cols:
+            col_mapping = mapping_values.get(col, {})
+            mapped_series = (
+                ehr_df[col].map(lambda v: col_mapping.get(str(v), v)) if col_mapping else ehr_df[col]
+            )
+            mapped_gcs_values.append(pd.to_numeric(mapped_series, errors="coerce"))
+        gcs_numeric_df = pd.concat(mapped_gcs_values, axis=1)
+        gcs_numeric_df.columns = gcs_cols
+        ehr_df["Glascow coma scale total"] = gcs_numeric_df.sum(axis=1).astype(int)
+
         # Apply one-hot encoding to categorical features if enabled
         if self.one_hot_encode_categorical:
             ehr_df = self._one_hot_encode_categorical_features(ehr_df, config)
@@ -298,6 +311,7 @@ class MIMICIVProcessor:
         self.logger.info(f"Number of patients: {ehr_df['PatientID'].nunique()}")
         self.logger.info(f"Number of admissions: {ehr_df['AdmissionID'].nunique()}")
         self.logger.info(f"Number of records: {len(ehr_df)}")
+        self.logger.info(f"Number of features: {len(ehr_df.columns)}")
         self.logger.info("--- In EHR Data ---\n")
 
         return ehr_df
