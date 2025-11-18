@@ -26,38 +26,6 @@ labtest_features = [
     "pH"
 ]
 
-[one_hot_labtest_features]
-"Capillary refill rate->0.0" = true
-"Capillary refill rate->1.0" = true
-"Glascow coma scale eye opening->1 No response" = true
-"Glascow coma scale eye opening->2 To pain" = true
-"Glascow coma scale eye opening->3 To speech" = true
-"Glascow coma scale eye opening->4 Spontaneously" = true
-"Glascow coma scale motor response->1 No response" = true
-"Glascow coma scale motor response->2 Abnormal extension" = true
-"Glascow coma scale motor response->3 Abnormal flexion" = true
-"Glascow coma scale motor response->4 Flex-withdraws" = true
-"Glascow coma scale motor response->5 Localizes pain" = true
-"Glascow coma scale motor response->6 Obeys commands" = true
-"Glascow coma scale total->3" = true
-"Glascow coma scale total->4" = true
-"Glascow coma scale total->5" = true
-"Glascow coma scale total->6" = true
-"Glascow coma scale total->7" = true
-"Glascow coma scale total->8" = true
-"Glascow coma scale total->9" = true
-"Glascow coma scale total->10" = true
-"Glascow coma scale total->11" = true
-"Glascow coma scale total->12" = true
-"Glascow coma scale total->13" = true
-"Glascow coma scale total->14" = true
-"Glascow coma scale total->15" = true
-"Glascow coma scale verbal response->1 No response-ETT" = true
-"Glascow coma scale verbal response->2 Incomprehensible sounds" = true
-"Glascow coma scale verbal response->3 Inappropriate words" = true
-"Glascow coma scale verbal response->4 Confused" = true
-"Glascow coma scale verbal response->5 Oriented" = true
-
 [is_categorical_channel]
 "Capillary refill rate" = true
 "Diastolic blood pressure" = false
@@ -85,40 +53,57 @@ labtest_features = [
 "Diastolic blood pressure" = []
 "Fraction inspired oxygen" = []
 "Glascow coma scale eye opening" = [
-    [1, "No response"],
-    [2, "To pain"],
-    [3, "To speech"],
-    [4, "Spontaneously"],
+    "1 No Response",
+    "2 To pain",
+    "3 To speech",
+    "4 Spontaneously",
+    "None",
+    "Spontaneously",
+    "To Pain",
+    "To Speech"
 ]
 "Glascow coma scale motor response" = [
-    [1, "No response"],
-    [2, "Abnormal extension"],
-    [3, "Abnormal flexion"],
-    [4, "Flex-withdraws"],
-    [5, "Localizes pain"],
-    [6, "Obeys commands"],
+    "1 No Response",
+    "2 Abnorm extensn",
+    "3 Abnorm flexion",
+    "4 Flex-withdraws",
+    "5 Localizes Pain",
+    "6 Obeys Commands",
+    "Abnormal Flexion",
+    "Abnormal extension",
+    "Flex-withdraws",
+    "Localizes Pain",
+    "No response",
+    "Obeys Commands"
 ]
 "Glascow coma scale total" = [
-    [3, "3"],
-    [4, "4"],
-    [5, "5"],
-    [6, "6"],
-    [7, "7"],
-    [8, "8"],
-    [9, "9"],
-    [10, "10"],
-    [11, "11"],
-    [12, "12"],
-    [13, "13"],
-    [14, "14"],
-    [15, "15"],
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "3",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "9"
 ]
 "Glascow coma scale verbal response" = [
-    [1, "No response-ETT"],
-    [2, "Incomprehensible sounds"],
-    [3, "Inappropriate words"],
-    [4, "Confused"],
-    [5, "Oriented"],
+    "1 No Response",
+    "1.0 ET/Trach",
+    "2 Incomp sounds",
+    "3 Inapprop words",
+    "4 Confused",
+    "5 Oriented",
+    "Confused",
+    "Inappropriate Words",
+    "Incomprehensible sounds",
+    "No Response",
+    "No Response-ETT",
+    "Oriented"
 ]
 "Glucose" = []
 "Heart Rate" = []
@@ -130,6 +115,61 @@ labtest_features = [
 "Temperature" = []
 "Weight" = []
 "pH" = []
+
+[mapping_values]
+
+[mapping_values."Glascow coma scale total"]
+"3" = 3
+"4" = 4
+"5" = 5
+"6" = 6
+"7" = 7
+"8" = 8
+"9" = 9
+"10" = 10
+"11" = 11
+"12" = 12
+"13" = 13
+"14" = 14
+"15" = 15
+
+[mapping_values."Glascow coma scale verbal response"]
+"No Response-ETT" = 1
+"No Response" = 1
+"1 No Response" = 1
+"1.0 ET/Trach" = 1
+"2 Incomp sounds" = 2
+"Incomprehensible sounds" = 2
+"3 Inapprop words" = 3
+"Inappropriate Words" = 3
+"4 Confused" = 4
+"Confused" = 4
+"5 Oriented" = 5
+"Oriented" = 5
+
+[mapping_values."Glascow coma scale eye opening"]
+"None" = 0
+"1 No Response" = 1
+"2 To pain" = 2
+"To Pain" = 2
+"3 To speech" = 3
+"To Speech" = 3
+"4 Spontaneously" = 4
+"Spontaneously" = 4
+
+[mapping_values."Glascow coma scale motor response"]
+"1 No Response" = 1
+"No response" = 1
+"2 Abnorm extensn" = 2
+"Abnormal extension" = 2
+"3 Abnorm flexion" = 3
+"Abnormal Flexion" = 3
+"4 Flex-withdraws" = 4
+"Flex-withdraws" = 4
+"5 Localizes Pain" = 5
+"Localizes Pain" = 5
+"6 Obeys Commands" = 6
+"Obeys Commands" = 6
 
 [normal_values]
 "Capillary refill rate" = "0.0"
